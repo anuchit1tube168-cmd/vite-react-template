@@ -1,43 +1,24 @@
-const RAW = 'https://raw.githubusercontent.com/anuchit1tube168-cmd/vite-react-template/astra-read-cleanroom/astra-read/src/';
-const BOOKS = [
-  {id:'skyforge',title:'นครเหนือเมฆ',author:'ลมเหนือ',genre:'Fantasy',status:'Ongoing',rating:4.9,chapters:42,accent:'#5B5BD6'},
-  {id:'jadepath',title:'วิถีหยกนิรันดร์',author:'หมึกคราม',genre:'Cultivation',status:'Ongoing',rating:4.8,chapters:118,accent:'#0F766E'},
-  {id:'zero-hour',title:'ศูนย์ชั่วโมง',author:'N. Vector',genre:'Sci-Fi',status:'Completed',rating:4.7,chapters:64,accent:'#334155'},
-  {id:'glass-rain',title:'ฝนบนกระจก',author:'พรายดาว',genre:'Romance',status:'Completed',rating:4.6,chapters:36,accent:'#BE185D'},
-  {id:'black-lantern',title:'ตะเกียงสีดำ',author:'Kirin',genre:'Mystery',status:'Ongoing',rating:4.9,chapters:57,accent:'#7C3AED'},
-  {id:'iron-pulse',title:'ชีพจรเหล็ก',author:'Astra Forge',genre:'Action',status:'Ongoing',rating:4.5,chapters:81,accent:'#B45309'}
-];
-const GENRES = ['All','Cultivation','Action','Fantasy','Mystery','Romance','Sci-Fi'];
-const SEC = {'x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','permissions-policy':'camera=(), microphone=(), geolocation=()','x-frame-options':'SAMEORIGIN'};
-
-addEventListener('fetch', event => event.respondWith(handle(event.request)));
-
-async function source(name){
-  const r = await fetch(RAW + name, {cf:{cacheTtl:300,cacheEverything:true}});
-  if (!r.ok) throw new Error('GitHub source unavailable: '+name);
-  return r.text();
-}
-function unwrap(s, prefix){
-  s = s.trim();
-  if (s.startsWith(prefix)) s = s.slice(prefix.length);
-  return s.replace(/`;\s*$/,'');
-}
-function reply(body,type,status=200){return new Response(body,{status,headers:{'content-type':type,'cache-control':'public, max-age=60',...SEC}})}
-
-async function handle(request){
-  const u = new URL(request.url);
-  try {
-    if (u.pathname === '/api/health') return Response.json({ok:true,service:'astra-read',version:'0.1.0',mode:'github-backed-clean-room'});
-    if (u.pathname === '/api/catalog') return Response.json({items:BOOKS,genres:GENRES});
-    if (u.pathname === '/app.css') return reply(unwrap(await source('styles.js'),'export const CSS = `'),'text/css; charset=utf-8');
-    if (u.pathname === '/app.js') {
-      let js = unwrap(await source('client.js'),'export const CLIENT = String.raw`');
-      js = js.replace('__BOOKS__',JSON.stringify(BOOKS)).replace('__GENRES__',JSON.stringify(GENRES));
-      return reply(js,'text/javascript; charset=utf-8');
-    }
-    if (u.pathname.startsWith('/api/')) return Response.json({error:'not_found'},{status:404});
-    return reply(unwrap(await source('ui.js'),'export const HTML = `'),'text/html; charset=utf-8');
-  } catch (err) {
-    return Response.json({ok:false,error:'upstream_source_unavailable',detail:String(err.message||err)},{status:502});
-  }
-}
+const RAW='https://raw.githubusercontent.com/anuchit1tube168-cmd/vite-react-template/astra-read-cleanroom/astra-read/src/';
+const SEC={'x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','permissions-policy':'camera=(), microphone=(), geolocation=()','x-frame-options':'SAMEORIGIN'};
+const json=(data,status=200,cache='no-store')=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':cache,...SEC}});
+const reply=(body,type,status=200)=>new Response(body,{status,headers:{'content-type':type,'cache-control':'public, max-age=60',...SEC}});
+const validReader=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{6,80}$/.test(id);
+const validBook=id=>typeof id==='string'&&/^[a-z0-9-]{2,64}$/.test(id);
+const bodyJson=async req=>{try{return await req.json()}catch{return {}}};
+async function source(name){const r=await fetch(RAW+name,{cf:{cacheTtl:120,cacheEverything:true}});if(!r.ok)throw new Error('source_unavailable');return r.text()}
+function unwrap(s,p){s=s.trim();if(s.startsWith(p))s=s.slice(p.length);return s.replace(/`;\s*$/,'')}
+async function ensureReader(env,id,name='Reader'){if(!validReader(id))return false;await env.DB.prepare(`INSERT INTO reader_profiles(id,display_name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name,updated_at=CURRENT_TIMESTAMP`).bind(id,String(name||'Reader').slice(0,80)).run();return true}
+async function catalog(env){const {results=[]}=await env.DB.prepare(`SELECT id,title,author,genre,status,rating,chapter_count AS chapters,accent,description FROM books ORDER BY rating DESC,title ASC`).all();return {items:results,genres:['All',...new Set(results.map(x=>x.genre))]}}
+async function api(request,env,u){const method=request.method.toUpperCase(),path=u.pathname;
+if(method==='GET'&&path==='/api/health'){const row=await env.DB.prepare('SELECT COUNT(*) AS books FROM books').first();return json({ok:true,service:'astra-read',version:'0.2.0',mode:'d1',books:Number(row?.books||0),payments:false})}
+if(method==='GET'&&path==='/api/catalog')return json(await catalog(env),200,'public, max-age=60');
+if(method==='POST'&&path==='/api/readers'){const b=await bodyJson(request);if(!validReader(b.reader_id))return json({error:'invalid_reader_id'},400);await ensureReader(env,b.reader_id,b.display_name||'Reader');return json({ok:true,reader_id:b.reader_id,display_name:String(b.display_name||'Reader').slice(0,80)},201)}
+if(method==='GET'&&path==='/api/library'){const r=request.headers.get('x-reader-id');if(!validReader(r))return json({error:'reader_required'},401);await ensureReader(env,r);const {results=[]}=await env.DB.prepare(`SELECT b.id,b.title,b.author,b.genre,b.status,b.rating,b.chapter_count AS chapters,b.accent,b.description FROM library_items l JOIN books b ON b.id=l.book_id WHERE l.reader_id=? ORDER BY l.created_at DESC`).bind(r).all();return json({items:results})}
+let m=path.match(/^\/api\/library\/([a-z0-9-]+)$/);if(m&&['POST','DELETE'].includes(method)){const r=request.headers.get('x-reader-id'),id=m[1];if(!validReader(r))return json({error:'reader_required'},401);if(!validBook(id))return json({error:'invalid_book'},400);await ensureReader(env,r);const b=await env.DB.prepare('SELECT id FROM books WHERE id=?').bind(id).first();if(!b)return json({error:'book_not_found'},404);if(method==='POST'){await env.DB.prepare('INSERT OR IGNORE INTO library_items(reader_id,book_id) VALUES(?,?)').bind(r,id).run();return json({ok:true,in_library:true})}await env.DB.prepare('DELETE FROM library_items WHERE reader_id=? AND book_id=?').bind(r,id).run();return json({ok:true,in_library:false})}
+if(method==='GET'&&path==='/api/progress'){const r=request.headers.get('x-reader-id');if(!validReader(r))return json({error:'reader_required'},401);const {results=[]}=await env.DB.prepare('SELECT book_id,chapter_no,progress_pct,updated_at FROM reading_progress WHERE reader_id=?').bind(r).all();return json({items:results})}
+m=path.match(/^\/api\/progress\/([a-z0-9-]+)$/);if(m&&method==='PUT'){const r=request.headers.get('x-reader-id'),id=m[1],b=await bodyJson(request);if(!validReader(r))return json({error:'reader_required'},401);await ensureReader(env,r);const book=await env.DB.prepare('SELECT chapter_count FROM books WHERE id=?').bind(id).first();if(!book)return json({error:'book_not_found'},404);const ch=Math.max(1,Math.min(Number(book.chapter_count||1),Number(b.chapter_no||1)|0)),pct=Math.max(0,Math.min(100,Number(b.progress_pct||0)));await env.DB.prepare(`INSERT INTO reading_progress(reader_id,book_id,chapter_no,progress_pct,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(reader_id,book_id) DO UPDATE SET chapter_no=excluded.chapter_no,progress_pct=excluded.progress_pct,updated_at=CURRENT_TIMESTAMP`).bind(r,id,ch,pct).run();return json({ok:true,book_id:id,chapter_no:ch,progress_pct:pct})}
+m=path.match(/^\/api\/books\/([a-z0-9-]+)$/);if(m&&method==='GET'){const book=await env.DB.prepare(`SELECT id,title,author,genre,status,rating,chapter_count AS chapters,accent,description FROM books WHERE id=?`).bind(m[1]).first();if(!book)return json({error:'book_not_found'},404);const {results:chapters=[]}=await env.DB.prepare(`SELECT chapter_no,title,is_free,coin_price,published_at FROM chapters WHERE book_id=? ORDER BY chapter_no`).bind(m[1]).all();return json({book,chapters},200,'public, max-age=60')}
+m=path.match(/^\/api\/books\/([a-z0-9-]+)\/chapters\/(\d+)$/);if(m&&method==='GET'){const id=m[1],n=Number(m[2]);const ch=await env.DB.prepare(`SELECT c.id,c.book_id,c.chapter_no,c.title,c.body,c.is_free,c.coin_price,b.title AS book_title,b.chapter_count FROM chapters c JOIN books b ON b.id=c.book_id WHERE c.book_id=? AND c.chapter_no=?`).bind(id,n).first();if(!ch)return json({error:'chapter_not_found'},404);let allowed=Number(ch.is_free)===1;const r=request.headers.get('x-reader-id');if(!allowed&&validReader(r)){const e=await env.DB.prepare(`SELECT 1 AS ok FROM entitlements WHERE reader_id=? AND chapter_id=? AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`).bind(r,ch.id).first();allowed=!!e}if(!allowed)return json({locked:true,book_id:id,chapter_no:n,title:ch.title,coin_price:ch.coin_price},402);return json({locked:false,book_id:id,book_title:ch.book_title,chapter_no:n,title:ch.title,body:ch.body,coin_price:ch.coin_price,chapter_count:ch.chapter_count})}
+m=path.match(/^\/api\/demo\/unlock\/([a-z0-9-]+)\/(\d+)$/);if(m&&method==='POST'){const r=request.headers.get('x-reader-id');if(!validReader(r))return json({error:'reader_required'},401);await ensureReader(env,r);const ch=await env.DB.prepare('SELECT id FROM chapters WHERE book_id=? AND chapter_no=?').bind(m[1],Number(m[2])).first();if(!ch)return json({error:'chapter_not_found'},404);await env.DB.prepare(`INSERT OR IGNORE INTO entitlements(reader_id,chapter_id,source) VALUES(?,?,'demo-phase2')`).bind(r,ch.id).run();return json({ok:true,demo:true,warning:'No real payment was charged.'})}
+return json({error:'not_found'},404)}
+export default{async fetch(request,env){const u=new URL(request.url);try{if(u.pathname.startsWith('/api/'))return await api(request,env,u);if(u.pathname==='/app.css')return reply(unwrap(await source('styles.js'),'export const CSS = `'),'text/css; charset=utf-8');if(u.pathname==='/app.js')return reply(unwrap(await source('client.js'),'export const CLIENT = String.raw`'),'text/javascript; charset=utf-8');return reply(unwrap(await source('ui.js'),'export const HTML = `'),'text/html; charset=utf-8')}catch(e){console.error(e);return json({error:'internal_error'},500)}}};
