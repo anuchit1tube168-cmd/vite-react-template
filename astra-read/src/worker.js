@@ -2,153 +2,47 @@ import { HTML } from './ui.js';
 import { CSS } from './styles.js';
 import { CLIENT } from './client.js';
 
-const securityHeaders = {
-  'x-content-type-options':'nosniff',
-  'referrer-policy':'strict-origin-when-cross-origin',
-  'permissions-policy':'camera=(), microphone=(), geolocation=()',
-  'x-frame-options':'SAMEORIGIN'
-};
+const securityHeaders={'x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin','permissions-policy':'camera=(), microphone=(), geolocation=()','x-frame-options':'SAMEORIGIN'};
+const enc=new TextEncoder();
+const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...securityHeaders,...extra}});
+const text=(body,type,status=200)=>new Response(body,{status,headers:{'content-type':type,'cache-control':'public, max-age=60',...securityHeaders}});
+const bodyJson=async req=>{try{return await req.json()}catch{return {}}};
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254;
+const bookOk=id=>typeof id==='string'&&/^[a-z0-9-]{2,64}$/.test(id);
+const b64u=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const fromB64u=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0));
+const hex=buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+const rand=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return a};
+async function passwordHash(password,salt,iterations){const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:fromB64u(salt),iterations},key,256);return b64u(new Uint8Array(bits))}
+function safeEq(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let x=0;for(let i=0;i<a.length;i++)x|=a.charCodeAt(i)^b.charCodeAt(i);return x===0}
+function cookie(req,name){const raw=req.headers.get('cookie')||'';for(const part of raw.split(';')){const [k,...v]=part.trim().split('=');if(k===name)return decodeURIComponent(v.join('='))}return null}
+async function tokenHash(token){return hex(await crypto.subtle.digest('SHA-256',enc.encode(token)))}
+async function sessionUser(req,env){const token=cookie(req,'ar_session');if(!token||token.length<30)return null;const h=await tokenHash(token);const user=await env.DB.prepare(`SELECT s.session_hash,s.reader_id,s.expires_at,r.display_name,a.email FROM sessions s JOIN reader_profiles r ON r.id=s.reader_id JOIN auth_accounts a ON a.reader_id=s.reader_id WHERE s.session_hash=? AND s.expires_at>CURRENT_TIMESTAMP`).bind(h).first();return user||null}
+async function createSession(env,readerId){await env.DB.prepare('DELETE FROM sessions WHERE expires_at<=CURRENT_TIMESTAMP').run();const token=b64u(rand(32)),h=await tokenHash(token),expires=new Date(Date.now()+30*86400000).toISOString();await env.DB.prepare('INSERT INTO sessions(session_hash,reader_id,expires_at) VALUES(?,?,?)').bind(h,readerId,expires).run();return {token,expires}}
+const sessionCookie=(token,maxAge=2592000)=>`ar_session=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+async function requireUser(req,env){return await sessionUser(req,env)}
+async function catalog(env){const {results=[]}=await env.DB.prepare(`SELECT id,title,author,genre,status,rating,chapter_count AS chapters,accent,description FROM books ORDER BY rating DESC,title ASC`).all();return {items:results,genres:['All',...new Set(results.map(x=>x.genre))]}}
 
-const json = (data,status=200,cache='no-store') => new Response(JSON.stringify(data),{
-  status,
-  headers:{'content-type':'application/json; charset=utf-8','cache-control':cache,...securityHeaders}
-});
-const text = (body,type,status=200,cache='public, max-age=60') => new Response(body,{status,headers:{'content-type':type,'cache-control':cache,...securityHeaders}});
-const validReader = id => typeof id === 'string' && /^[A-Za-z0-9_-]{6,80}$/.test(id);
-const validBook = id => typeof id === 'string' && /^[a-z0-9-]{2,64}$/.test(id);
-const bodyJson = async req => { try { return await req.json(); } catch { return {}; } };
+async function api(req,env,u){const method=req.method.toUpperCase(),path=u.pathname;
+if(method==='GET'&&path==='/api/health'){const row=await env.DB.prepare('SELECT COUNT(*) AS books FROM books').first();return json({ok:true,service:'astra-read',version:'0.3.0',mode:'d1-session-auth',books:Number(row?.books||0),payments:false})}
+if(method==='GET'&&path==='/api/catalog')return new Response(JSON.stringify(await catalog(env)),{headers:{'content-type':'application/json; charset=utf-8','cache-control':'public, max-age=60',...securityHeaders}});
 
-async function ensureReader(env,id,displayName='Reader') {
-  if (!validReader(id)) return false;
-  await env.DB.prepare(`INSERT INTO reader_profiles(id,display_name) VALUES(?,?)
-    ON CONFLICT(id) DO UPDATE SET display_name=excluded.display_name, updated_at=CURRENT_TIMESTAMP`)
-    .bind(id,String(displayName||'Reader').slice(0,80)).run();
-  return true;
-}
+if(method==='POST'&&path==='/api/auth/register'){const b=await bodyJson(req),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||''),name=String(b.display_name||'Reader').trim().slice(0,80);if(!emailOk(email))return json({error:'invalid_email'},400);if(password.length<10||password.length>128)return json({error:'password_policy'},400);if(name.length<2)return json({error:'invalid_display_name'},400);const exists=await env.DB.prepare('SELECT reader_id FROM auth_accounts WHERE email=?').bind(email).first();if(exists)return json({error:'email_in_use'},409);const readerId=crypto.randomUUID().replace(/-/g,''),salt=b64u(rand(16)),iterations=100000,hash=await passwordHash(password,salt,iterations);try{await env.DB.batch([env.DB.prepare('INSERT INTO reader_profiles(id,display_name) VALUES(?,?)').bind(readerId,name),env.DB.prepare('INSERT INTO auth_accounts(reader_id,email,password_salt,password_hash,password_iterations) VALUES(?,?,?,?,?)').bind(readerId,email,salt,hash,iterations)]);const s=await createSession(env,readerId);return json({ok:true,user:{id:readerId,email,display_name:name}},201,{'set-cookie':sessionCookie(s.token)})}catch{return json({error:'register_failed'},500)}}
+if(method==='POST'&&path==='/api/auth/login'){const b=await bodyJson(req),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');const a=await env.DB.prepare('SELECT a.reader_id,a.email,a.password_salt,a.password_hash,a.password_iterations,r.display_name FROM auth_accounts a JOIN reader_profiles r ON r.id=a.reader_id WHERE a.email=?').bind(email).first();if(!a)return json({error:'invalid_credentials'},401);const hash=await passwordHash(password,a.password_salt,Number(a.password_iterations));if(!safeEq(hash,a.password_hash))return json({error:'invalid_credentials'},401);const s=await createSession(env,a.reader_id);return json({ok:true,user:{id:a.reader_id,email:a.email,display_name:a.display_name}},200,{'set-cookie':sessionCookie(s.token)})}
+if(method==='POST'&&path==='/api/auth/logout'){const token=cookie(req,'ar_session');if(token){const h=await tokenHash(token);await env.DB.prepare('DELETE FROM sessions WHERE session_hash=?').bind(h).run()}return json({ok:true},200,{'set-cookie':sessionCookie('',0)})}
+if(method==='GET'&&path==='/api/auth/me'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);return json({user:{id:user.reader_id,email:user.email,display_name:user.display_name}})}
 
-async function catalog(env) {
-  const {results=[]} = await env.DB.prepare(`SELECT id,title,author,genre,status,rating,
-    chapter_count AS chapters,accent,description FROM books ORDER BY rating DESC,title ASC`).all();
-  const genres=['All',...new Set(results.map(x=>x.genre))];
-  return {items:results,genres};
-}
+if(method==='GET'&&path==='/api/account/export'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);const [lib,prog,ent]=await Promise.all([env.DB.prepare('SELECT book_id,created_at FROM library_items WHERE reader_id=?').bind(user.reader_id).all(),env.DB.prepare('SELECT book_id,chapter_no,progress_pct,updated_at FROM reading_progress WHERE reader_id=?').bind(user.reader_id).all(),env.DB.prepare('SELECT chapter_id,source,granted_at,expires_at FROM entitlements WHERE reader_id=?').bind(user.reader_id).all()]);return json({profile:{id:user.reader_id,email:user.email,display_name:user.display_name},library:lib.results||[],progress:prog.results||[],entitlements:ent.results||[]})}
+if(method==='DELETE'&&path==='/api/account'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);await env.DB.prepare('DELETE FROM reader_profiles WHERE id=?').bind(user.reader_id).run();return json({ok:true,deleted:true},200,{'set-cookie':sessionCookie('',0)})}
 
-async function api(request,env,url) {
-  const method=request.method.toUpperCase();
-  const path=url.pathname;
+if(method==='GET'&&path==='/api/library'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);const {results=[]}=await env.DB.prepare(`SELECT b.id,b.title,b.author,b.genre,b.status,b.rating,b.chapter_count AS chapters,b.accent,b.description FROM library_items l JOIN books b ON b.id=l.book_id WHERE l.reader_id=? ORDER BY l.created_at DESC`).bind(user.reader_id).all();return json({items:results})}
+let m=path.match(/^\/api\/library\/([a-z0-9-]+)$/);if(m&&['POST','DELETE'].includes(method)){const user=await requireUser(req,env),id=m[1];if(!user)return json({error:'unauthorized'},401);if(!bookOk(id))return json({error:'invalid_book'},400);const b=await env.DB.prepare('SELECT id FROM books WHERE id=?').bind(id).first();if(!b)return json({error:'book_not_found'},404);if(method==='POST'){await env.DB.prepare('INSERT OR IGNORE INTO library_items(reader_id,book_id) VALUES(?,?)').bind(user.reader_id,id).run();return json({ok:true,in_library:true})}await env.DB.prepare('DELETE FROM library_items WHERE reader_id=? AND book_id=?').bind(user.reader_id,id).run();return json({ok:true,in_library:false})}
+if(method==='GET'&&path==='/api/progress'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);const {results=[]}=await env.DB.prepare('SELECT book_id,chapter_no,progress_pct,updated_at FROM reading_progress WHERE reader_id=?').bind(user.reader_id).all();return json({items:results})}
+m=path.match(/^\/api\/progress\/([a-z0-9-]+)$/);if(m&&method==='PUT'){const user=await requireUser(req,env),id=m[1],b=await bodyJson(req);if(!user)return json({error:'unauthorized'},401);const book=await env.DB.prepare('SELECT chapter_count FROM books WHERE id=?').bind(id).first();if(!book)return json({error:'book_not_found'},404);const ch=Math.max(1,Math.min(Number(book.chapter_count||1),Number(b.chapter_no||1)|0)),pct=Math.max(0,Math.min(100,Number(b.progress_pct||0)));await env.DB.prepare(`INSERT INTO reading_progress(reader_id,book_id,chapter_no,progress_pct,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(reader_id,book_id) DO UPDATE SET chapter_no=excluded.chapter_no,progress_pct=excluded.progress_pct,updated_at=CURRENT_TIMESTAMP`).bind(user.reader_id,id,ch,pct).run();return json({ok:true,book_id:id,chapter_no:ch,progress_pct:pct})}
 
-  if (method==='GET' && path==='/api/health') {
-    const row=await env.DB.prepare('SELECT COUNT(*) AS books FROM books').first();
-    return json({ok:true,service:'astra-read',version:'0.2.0',mode:'d1',books:Number(row?.books||0)});
-  }
+m=path.match(/^\/api\/books\/([a-z0-9-]+)$/);if(m&&method==='GET'){const book=await env.DB.prepare(`SELECT id,title,author,genre,status,rating,chapter_count AS chapters,accent,description FROM books WHERE id=?`).bind(m[1]).first();if(!book)return json({error:'book_not_found'},404);const {results:chapters=[]}=await env.DB.prepare('SELECT chapter_no,title,is_free,coin_price,published_at FROM chapters WHERE book_id=? ORDER BY chapter_no').bind(m[1]).all();return json({book,chapters})}
+m=path.match(/^\/api\/books\/([a-z0-9-]+)\/chapters\/(\d+)$/);if(m&&method==='GET'){const id=m[1],n=Number(m[2]);const ch=await env.DB.prepare(`SELECT c.id,c.book_id,c.chapter_no,c.title,c.body,c.is_free,c.coin_price,b.title AS book_title,b.chapter_count FROM chapters c JOIN books b ON b.id=c.book_id WHERE c.book_id=? AND c.chapter_no=?`).bind(id,n).first();if(!ch)return json({error:'chapter_not_found'},404);let allowed=Number(ch.is_free)===1;if(!allowed){const user=await requireUser(req,env);if(user){const e=await env.DB.prepare(`SELECT 1 AS ok FROM entitlements WHERE reader_id=? AND chapter_id=? AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`).bind(user.reader_id,ch.id).first();allowed=!!e}}if(!allowed)return json({locked:true,book_id:id,chapter_no:n,title:ch.title,coin_price:ch.coin_price},402);return json({locked:false,book_id:id,book_title:ch.book_title,chapter_no:n,title:ch.title,body:ch.body,coin_price:ch.coin_price,chapter_count:ch.chapter_count})}
+m=path.match(/^\/api\/demo\/unlock\/([a-z0-9-]+)\/(\d+)$/);if(m&&method==='POST'){const user=await requireUser(req,env);if(!user)return json({error:'unauthorized'},401);const ch=await env.DB.prepare('SELECT id FROM chapters WHERE book_id=? AND chapter_no=?').bind(m[1],Number(m[2])).first();if(!ch)return json({error:'chapter_not_found'},404);await env.DB.prepare(`INSERT OR IGNORE INTO entitlements(reader_id,chapter_id,source) VALUES(?,?,'demo-phase3')`).bind(user.reader_id,ch.id).run();return json({ok:true,demo:true,warning:'No real payment was charged.'})}
+return json({error:'not_found'},404)}
 
-  if (method==='GET' && path==='/api/catalog') return json(await catalog(env),200,'public, max-age=60');
-
-  if (method==='POST' && path==='/api/readers') {
-    const b=await bodyJson(request);
-    if (!validReader(b.reader_id)) return json({error:'invalid_reader_id'},400);
-    await ensureReader(env,b.reader_id,b.display_name||'Reader');
-    return json({ok:true,reader_id:b.reader_id,display_name:String(b.display_name||'Reader').slice(0,80)},201);
-  }
-
-  if (method==='GET' && path==='/api/library') {
-    const reader=request.headers.get('x-reader-id');
-    if (!validReader(reader)) return json({error:'reader_required'},401);
-    await ensureReader(env,reader,'Reader');
-    const {results=[]}=await env.DB.prepare(`SELECT b.id,b.title,b.author,b.genre,b.status,b.rating,b.chapter_count AS chapters,b.accent,b.description
-      FROM library_items l JOIN books b ON b.id=l.book_id WHERE l.reader_id=? ORDER BY l.created_at DESC`).bind(reader).all();
-    return json({items:results});
-  }
-
-  const libMatch=path.match(/^\/api\/library\/([a-z0-9-]+)$/);
-  if (libMatch && ['POST','DELETE'].includes(method)) {
-    const reader=request.headers.get('x-reader-id'),bookId=libMatch[1];
-    if (!validReader(reader)) return json({error:'reader_required'},401);
-    if (!validBook(bookId)) return json({error:'invalid_book'},400);
-    await ensureReader(env,reader,'Reader');
-    const exists=await env.DB.prepare('SELECT id FROM books WHERE id=?').bind(bookId).first();
-    if (!exists) return json({error:'book_not_found'},404);
-    if (method==='POST') {
-      await env.DB.prepare('INSERT OR IGNORE INTO library_items(reader_id,book_id) VALUES(?,?)').bind(reader,bookId).run();
-      return json({ok:true,in_library:true});
-    }
-    await env.DB.prepare('DELETE FROM library_items WHERE reader_id=? AND book_id=?').bind(reader,bookId).run();
-    return json({ok:true,in_library:false});
-  }
-
-  if (method==='GET' && path==='/api/progress') {
-    const reader=request.headers.get('x-reader-id');
-    if (!validReader(reader)) return json({error:'reader_required'},401);
-    const {results=[]}=await env.DB.prepare('SELECT book_id,chapter_no,progress_pct,updated_at FROM reading_progress WHERE reader_id=?').bind(reader).all();
-    return json({items:results});
-  }
-
-  const progMatch=path.match(/^\/api\/progress\/([a-z0-9-]+)$/);
-  if (progMatch && method==='PUT') {
-    const reader=request.headers.get('x-reader-id'),bookId=progMatch[1],b=await bodyJson(request);
-    if (!validReader(reader)) return json({error:'reader_required'},401);
-    const chapter=Math.max(1,Math.min(100000,Number(b.chapter_no||1)|0));
-    const pct=Math.max(0,Math.min(100,Number(b.progress_pct||0)));
-    await ensureReader(env,reader,'Reader');
-    const exists=await env.DB.prepare('SELECT id,chapter_count FROM books WHERE id=?').bind(bookId).first();
-    if (!exists) return json({error:'book_not_found'},404);
-    const safeChapter=Math.min(chapter,Number(exists.chapter_count||chapter));
-    await env.DB.prepare(`INSERT INTO reading_progress(reader_id,book_id,chapter_no,progress_pct,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP)
-      ON CONFLICT(reader_id,book_id) DO UPDATE SET chapter_no=excluded.chapter_no,progress_pct=excluded.progress_pct,updated_at=CURRENT_TIMESTAMP`)
-      .bind(reader,bookId,safeChapter,pct).run();
-    return json({ok:true,book_id:bookId,chapter_no:safeChapter,progress_pct:pct});
-  }
-
-  const detailMatch=path.match(/^\/api\/books\/([a-z0-9-]+)$/);
-  if (detailMatch && method==='GET') {
-    const id=detailMatch[1];
-    const book=await env.DB.prepare(`SELECT id,title,author,genre,status,rating,chapter_count AS chapters,accent,description FROM books WHERE id=?`).bind(id).first();
-    if (!book) return json({error:'book_not_found'},404);
-    const {results:chapters=[]}=await env.DB.prepare(`SELECT chapter_no,title,is_free,coin_price,published_at FROM chapters WHERE book_id=? ORDER BY chapter_no`).bind(id).all();
-    return json({book,chapters},200,'public, max-age=60');
-  }
-
-  const chapterMatch=path.match(/^\/api\/books\/([a-z0-9-]+)\/chapters\/(\d+)$/);
-  if (chapterMatch && method==='GET') {
-    const [_,bookId,numText]=chapterMatch,chapterNo=Number(numText);
-    const ch=await env.DB.prepare(`SELECT c.id,c.book_id,c.chapter_no,c.title,c.body,c.is_free,c.coin_price,b.title AS book_title,b.chapter_count
-      FROM chapters c JOIN books b ON b.id=c.book_id WHERE c.book_id=? AND c.chapter_no=?`).bind(bookId,chapterNo).first();
-    if (!ch) return json({error:'chapter_not_found'},404);
-    let allowed=Number(ch.is_free)===1;
-    const reader=request.headers.get('x-reader-id');
-    if (!allowed && validReader(reader)) {
-      const e=await env.DB.prepare(`SELECT 1 AS ok FROM entitlements WHERE reader_id=? AND chapter_id=? AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)`).bind(reader,ch.id).first();
-      allowed=!!e;
-    }
-    if (!allowed) return json({locked:true,book_id:bookId,chapter_no:chapterNo,title:ch.title,coin_price:ch.coin_price},402);
-    return json({locked:false,book_id:bookId,book_title:ch.book_title,chapter_no:chapterNo,title:ch.title,body:ch.body,coin_price:ch.coin_price,chapter_count:ch.chapter_count});
-  }
-
-  const unlockMatch=path.match(/^\/api\/demo\/unlock\/([a-z0-9-]+)\/(\d+)$/);
-  if (unlockMatch && method==='POST') {
-    const reader=request.headers.get('x-reader-id');
-    if (!validReader(reader)) return json({error:'reader_required'},401);
-    await ensureReader(env,reader,'Reader');
-    const ch=await env.DB.prepare('SELECT id FROM chapters WHERE book_id=? AND chapter_no=?').bind(unlockMatch[1],Number(unlockMatch[2])).first();
-    if (!ch) return json({error:'chapter_not_found'},404);
-    await env.DB.prepare(`INSERT OR IGNORE INTO entitlements(reader_id,chapter_id,source) VALUES(?,?,'demo-phase2')`).bind(reader,ch.id).run();
-    return json({ok:true,demo:true,warning:'No real payment was charged.'});
-  }
-
-  return json({error:'not_found'},404);
-}
-
-export default {
-  async fetch(request,env) {
-    const url=new URL(request.url);
-    try {
-      if (url.pathname.startsWith('/api/')) return await api(request,env,url);
-      if (url.pathname==='/app.css') return text(CSS,'text/css; charset=utf-8');
-      if (url.pathname==='/app.js') return text(CLIENT,'text/javascript; charset=utf-8');
-      return text(HTML,'text/html; charset=utf-8');
-    } catch (error) {
-      console.error('ASTRA_READ_ERROR',error);
-      return json({error:'internal_error'},500);
-    }
-  }
-};
+export default{async fetch(req,env){const u=new URL(req.url);try{if(u.pathname.startsWith('/api/'))return await api(req,env,u);if(u.pathname==='/app.css')return text(CSS,'text/css; charset=utf-8');if(u.pathname==='/app.js')return text(CLIENT,'text/javascript; charset=utf-8');return text(HTML,'text/html; charset=utf-8')}catch(e){console.error('ASTRA_READ_ERROR',e);return json({error:'internal_error'},500)}}};
