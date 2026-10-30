@@ -1,0 +1,16 @@
+id,feature,priority,target_evidence,clone_status,notes
+F01,Catalog and cards,must,public rendered UI,yes,Original sample catalog
+F02,Search,must,public rendered UI,yes,Title author genre
+F03,Genre filters,must,public rendered UI,yes,7 demo genres
+F04,Sort and status filters,must,public rendered UI,yes,Rating chapters name status
+F05,Story detail,must,public rendered UI,yes,Original synopsis and assets
+F06,Chapter directory,must,public rendered UI,yes,Demo chapter rows
+F07,Reader prev next,must,public rendered UI,yes,SPA reader flow
+F08,Reader settings,must,public rendered UI,yes,Theme font size width
+F09,Library,should,public rendered UI,yes,Local demo persistence
+F10,Reading progress,should,public rendered UI,yes,LocalStorage MVP
+F11,Sign-in,should,public rendered UI,partial,Local demo only
+F12,VIP and coins,should,public rendered UI,partial,UI shell only no payment
+F13,Notifications,could,public rendered UI,partial,Placeholder surface
+F14,Support,could,public rendered UI,partial,Placeholder surface
+F15,Production backend,must,inferred,no,D1/Auth/entitlements phase
