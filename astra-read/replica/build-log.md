@@ -7,31 +7,38 @@
 - Added search, genre filters, sort/status filters, demo sign-in and reader preferences.
 - Added original demo story names, authors, prose and geometric covers; no target content/assets ship.
 - Deployed Cloudflare Worker `astra-read` and enabled its workers.dev subdomain.
-- External Browser Rendering smoke returned HTTP 200 and rendered six original catalog cards.
 
 ## 2026-10-30 — Phase 2
 - Created Cloudflare D1 database `astra-read-prod` in APAC.
-- Added migration `0001_init.sql` with books, chapters, reader profiles, library, reading progress, entitlements and coin ledger.
-- Added reproducible `0002_seed_demo.sql`.
+- Added schema and reproducible demo seed migrations.
 - Seeded 6 original stories and 72 demo chapters.
 - Bound D1 to Worker as `DB`.
-- Replaced live catalog with D1-backed `/api/catalog`.
-- Added D1-backed story/chapter, library and reading-progress APIs.
-- Added server-side entitlement check for locked chapters.
-- Added demo-only entitlement grant endpoint; no real money or coins are charged.
+- Moved catalog, story/chapter data, library and progress to D1.
+- Added server-side entitlement checks for locked demo chapters.
 - Set `PAYMENTS_ENABLED=false`.
-- Updated frontend to read catalog/detail/chapter data from the API and sync library/progress to D1.
-- Deployed Worker v0.2.0 to the existing workers.dev URL.
-- External Browser Rendering confirmed HTTP 200 and visible `CLOUDFLARE D1 · PHASE 2` UI with the six D1 catalog items.
+- External Browser Rendering confirmed HTTP 200 and D1-backed Phase 2 catalog.
 
-## Feature status
+## 2026-10-30 — Phase 3
+- Added `auth_accounts` and `sessions` migrations.
+- Implemented email/password registration and login with PBKDF2-SHA256, per-account salt and 100,000 iterations.
+- Implemented opaque 30-day session cookie (`HttpOnly`, `Secure`, `SameSite=Lax`) and stored only hashed session tokens in D1.
+- Removed caller-supplied reader IDs from private Library/Progress/Entitlement authorization.
+- Added `/api/auth/me`, logout, account export and account deletion.
+- Updated frontend login/register/account surfaces to use cookie authentication.
+- Deployed Worker v0.3.0 to the existing workers.dev URL.
+- Production health smoke returned HTTP 200: `mode=d1-session-auth`, `books=6`, `payments=false`.
+- Full-page Browser Rendering recheck was rate-limited after the API smoke; no deployment rollback was needed because the live health endpoint and Worker deployment both succeeded.
+
+## Current feature status
 - Browse/search/filter: yes, D1-backed.
 - Story detail + chapter directory: yes, D1-backed.
 - Reader: yes for seeded demo chapters.
-- Library: yes, D1-backed demo identity.
-- Reading progress: yes, D1-backed demo identity.
+- Library: yes, authenticated D1-backed.
+- Reading progress: yes, authenticated D1-backed.
 - Reader preferences: yes, local device settings.
-- Entitlement enforcement: yes on server for seeded locked demo chapters.
-- Auth: partial — device/demo identity, not production authentication.
-- VIP/coins/payments: partial schema only; transactions are disabled.
-- Production content/admin: pending.
+- Entitlement enforcement: yes, server-side.
+- Auth: yes for basic email/password + server session; email verification/recovery still pending.
+- Account export/delete: yes.
+- VIP/coins/payments: schema/entitlement demo only; real transactions disabled.
+- Notifications/support: next phase.
+- Production content/admin CMS: pending.
