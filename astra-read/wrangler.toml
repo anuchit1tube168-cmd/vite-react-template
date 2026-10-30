@@ -3,5 +3,12 @@ main = "src/worker.js"
 compatibility_date = "2026-10-30"
 workers_dev = true
 
+[[d1_databases]]
+binding = "DB"
+database_name = "astra-read-prod"
+database_id = "4ab5b67f-5f45-47cc-8e00-70a22db68d46"
+migrations_dir = "migrations"
+
 [vars]
 APP_ENV = "production"
+PAYMENTS_ENABLED = "false"
