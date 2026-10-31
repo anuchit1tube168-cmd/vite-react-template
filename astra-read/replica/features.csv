@@ -1,20 +1,51 @@
 id,feature,priority,target_evidence,clone_status,notes
-F01,Catalog and compact cover cards,must,public rendered UI,yes,Original ASTRA catalog and original geometric covers
-F02,Search,must,public rendered UI,yes,Title author genre
-F03,Genre filters,must,public rendered UI,yes,Responsive horizontal chips on mobile
-F04,Sort and status filters,must,public rendered UI,yes,Rating chapters name status
-F05,Story detail,must,public rendered UI,yes,Original synopsis and assets
-F06,Chapter directory,must,public rendered UI,yes,Free and entitlement states
-F07,Reader previous next,must,public rendered UI,yes,SPA reader flow
-F08,Reader settings,must,public rendered UI,yes,Theme font size reading width plus serif/sans enhancement
-F09,Library,should,public rendered UI,yes,Authenticated D1 persistence
-F10,Reading progress,should,public rendered UI,yes,Authenticated D1 progress
-F11,Sign-in and account,should,public rendered UI,yes,PBKDF2 password plus HttpOnly session
-F12,VIP and coins,should,public rendered UI,partial,Visual shell and demo entitlement only; live payment intentionally disabled
-F13,Notifications,could,public rendered UI,yes,Authenticated D1 notifications
-F14,Support,could,public rendered UI,yes,Authenticated support tickets
-F15,Production backend,must,inferred,yes,Cloudflare Worker plus D1
-F16,Warm sepia visual system,must,public rendered UI,yes,Fresh ASTRA design tokens and responsive catalog density
-F17,Mobile safe shell,must,observed mobile failure,yes,HTML fallback plus progressive enhancement and mobile dock
-F18,Portable multi-host build,should,deployment requirement,yes,Shared build for Cloudflare Pages and Netlify
-F19,Netlify production deployment,should,deployment requirement,partial,Repo/config ready; account connection still required
+F01,Global shell and sticky header,must,public rendered UI,yes,ASTRA branding with original code
+F02,Search,must,public rendered UI,yes,Title author genre live filtering
+F03,Genre chips,must,public rendered UI,yes,Responsive horizontal chips
+F04,Sort latest chapters rating title,must,public rendered UI,yes,Latest now supported by updated_at
+F05,Status filter,must,public rendered UI,yes,Ongoing and Completed
+F06,Dense responsive story grid,must,public rendered UI,yes,6 desktop columns and 2 mobile columns
+F07,Story detail metadata,must,public rendered UI,yes,Genre author rating chapter count status synopsis
+F08,Start or resume reading,must,public rendered UI,yes,Uses synced reading progress
+F09,Add remove Library,must,public rendered UI,yes,Server session ownership
+F10,Chapter directory,must,public rendered UI,yes,Search sort free and coin labels
+F11,Free versus coin chapter access,must,public rendered UI,yes,Server-authoritative entitlement check
+F12,Coin wallet balance,must,public rendered UI,yes,D1 ledger-backed balance
+F13,Quick Top-Up entry,must,public rendered UI,yes,Floating action and wallet modal
+F14,Coin ledger history,should,inferred from wallet behavior,yes,Last 30 server ledger rows
+F15,Coin unlock deduction,must,public rendered UI,yes,Unique reference prevents repeat charge
+F16,Real-money top-up,payment,public monetization surface,skip,Disabled until owned payment provider and signed webhooks
+F17,VIP Member surface,must,public rendered UI,yes,Global VIP status UI
+F18,VIP membership state,should,public rendered UI,yes,D1 membership plus 7-day demo trial
+F19,Real paid VIP subscription,payment,public monetization surface,skip,Requires owned hosted checkout and lifecycle webhooks
+F20,Email password sign-in,must,public sign-in modal,yes,PBKDF2 plus HttpOnly session
+F21,Signup,must,public sign-in modal,yes,Email password display name
+F22,Google sign-in,should,public sign-in modal,partial,UI present; blocked on project-owned Google OAuth client configuration
+F23,Account summary,should,authenticated experience,yes,Coins library history unread VIP
+F24,Account export,must,privacy requirement,yes,JSON export without credential hashes
+F25,Account deletion,must,privacy requirement,yes,Cascade delete and session clear
+F26,Library saved tab,must,public Library concept,yes,Authenticated D1
+F27,Reading history tab,should,inferred from resume behavior,yes,Progress joined to story metadata
+F28,Reading progress sync,must,inferred from reader behavior,yes,Chapter and progress percentage
+F29,Reader previous next,must,public reader flow,yes,Chapter navigation
+F30,Reader scroll progress,must,inferred from resume behavior,yes,Debounced server sync
+F31,Serif Sans font choice,must,public Reader Settings,yes,Original font stack
+F32,Font size controls,must,public Reader Settings,yes,14 to 30 px
+F33,White Sepia Dark themes,must,public Reader Settings,yes,Global and reader theme tokens
+F34,Theme ambient slider,should,public Reader Settings,yes,0 to 100 persisted and synced
+F35,Reading width control,should,reader usability,yes,Persisted and synced
+F36,Notifications list,must,public global control,yes,Authenticated own notifications
+F37,Unread badge,must,public global control,yes,Account summary unread count
+F38,Mark notification read,must,public global control,yes,One item or all
+F39,Admin support ticket submit,must,public global control,yes,Authenticated D1 ticket
+F40,Support ticket history,should,public support concept,yes,Own tickets only
+F41,Mobile bottom navigation,should,mobile rendered UI,yes,Single v0.5 dock
+F42,Mobile safe fallback,must,observed blank-page risk,yes,Server HTML fallback before JS
+F43,Loading empty error states,must,product quality,yes,Core states implemented
+F44,Cloudflare Pages frontend,must,deployment requirement,yes,GitHub-connected static build plus API proxy
+F45,Cloudflare Worker API,must,deployment requirement,yes,v0.5 D1 backend
+F46,Netlify portable deployment,should,deployment requirement,partial,Config and Edge proxy ready; account connection not available in chat
+F47,Google OAuth production,should,external provider requirement,no,Needs owned client ID secret and redirect URIs
+F48,Password reset email,should,account recovery,no,Needs transactional email provider
+F49,Admin CMS,should,content operations,no,Next parity phase
+F50,Production payments,payment,monetization,no,Must remain off until provider and webhook reconciliation are configured
