@@ -1,16 +1,20 @@
 id,feature,priority,target_evidence,clone_status,notes
-F01,Catalog and cards,must,public rendered UI,yes,Original sample catalog
+F01,Catalog and compact cover cards,must,public rendered UI,yes,Original ASTRA catalog and original geometric covers
 F02,Search,must,public rendered UI,yes,Title author genre
-F03,Genre filters,must,public rendered UI,yes,7 demo genres
+F03,Genre filters,must,public rendered UI,yes,Responsive horizontal chips on mobile
 F04,Sort and status filters,must,public rendered UI,yes,Rating chapters name status
 F05,Story detail,must,public rendered UI,yes,Original synopsis and assets
-F06,Chapter directory,must,public rendered UI,yes,Demo chapter rows
-F07,Reader prev next,must,public rendered UI,yes,SPA reader flow
-F08,Reader settings,must,public rendered UI,yes,Theme font size width
-F09,Library,should,public rendered UI,yes,Local demo persistence
-F10,Reading progress,should,public rendered UI,yes,LocalStorage MVP
-F11,Sign-in,should,public rendered UI,partial,Local demo only
-F12,VIP and coins,should,public rendered UI,partial,UI shell only no payment
-F13,Notifications,could,public rendered UI,partial,Placeholder surface
-F14,Support,could,public rendered UI,partial,Placeholder surface
-F15,Production backend,must,inferred,no,D1/Auth/entitlements phase
+F06,Chapter directory,must,public rendered UI,yes,Free and entitlement states
+F07,Reader previous next,must,public rendered UI,yes,SPA reader flow
+F08,Reader settings,must,public rendered UI,yes,Theme font size reading width plus serif/sans enhancement
+F09,Library,should,public rendered UI,yes,Authenticated D1 persistence
+F10,Reading progress,should,public rendered UI,yes,Authenticated D1 progress
+F11,Sign-in and account,should,public rendered UI,yes,PBKDF2 password plus HttpOnly session
+F12,VIP and coins,should,public rendered UI,partial,Visual shell and demo entitlement only; live payment intentionally disabled
+F13,Notifications,could,public rendered UI,yes,Authenticated D1 notifications
+F14,Support,could,public rendered UI,yes,Authenticated support tickets
+F15,Production backend,must,inferred,yes,Cloudflare Worker plus D1
+F16,Warm sepia visual system,must,public rendered UI,yes,Fresh ASTRA design tokens and responsive catalog density
+F17,Mobile safe shell,must,observed mobile failure,yes,HTML fallback plus progressive enhancement and mobile dock
+F18,Portable multi-host build,should,deployment requirement,yes,Shared build for Cloudflare Pages and Netlify
+F19,Netlify production deployment,should,deployment requirement,partial,Repo/config ready; account connection still required
