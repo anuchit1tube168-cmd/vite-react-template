@@ -15,11 +15,11 @@ F13,Quick Top-Up entry,must,public rendered UI,yes,Floating action opens coin pa
 F14,Coin ledger history,should,inferred from wallet behavior,yes,Last 30 server ledger rows
 F15,Coin unlock deduction,must,public rendered UI,yes,Unique reference prevents repeat charge
 F16,Real-money top-up,payment,public monetization UI,partial,Package and checkout shell ready; Stripe connection required
-F17,VIP Member entry,must,public rendered UI,partial,Observed target VIP entry opens same coin package modal; mapping deployed and shares verified parity script but final click smoke hit Browser Rendering 429
+F17,VIP Member entry,must,public rendered UI,yes,Live Browser Rendering verified VIP opens the same coin package modal as Quick Top-Up
 F18,Internal VIP membership trial,could,ASTRA enhancement,yes,Optional ASTRA-only demo state; not required for observed target parity
 F19,Real paid VIP subscription,could,not observed as separate public target flow,skip,No separate paid VIP flow required from current public evidence
 F20,Email password sign-in,must,public sign-in modal,yes,PBKDF2 plus HttpOnly session
-F21,Separate Create Account state,must,public signup modal,partial,Username email password state deployed; final click smoke pending
+F21,Separate Create Account state,must,public signup modal,yes,Live Browser Rendering verified Google Username Email Password and back-to-sign-in controls
 F22,Google sign-in,should,public sign-in and signup modal,partial,UI present; project-owned Google OAuth client still required
 F23,Account summary,should,authenticated experience,yes,Coins library history unread optional ASTRA VIP state
 F24,Account export,must,privacy requirement,yes,JSON export without credential hashes
