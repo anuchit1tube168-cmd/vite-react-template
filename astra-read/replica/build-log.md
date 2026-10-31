@@ -45,27 +45,39 @@
 - Added Reader table-of-contents action and `auto-purchase next chapter when enough Coins` preference; the D1 preference is exposed via GET/PUT API and locked chapters can use the existing coin-unlock endpoint after navigation.
 - Fixed a generated parity-script parsing bug caused by regex escaping inside the static build template. Commit `a2c5adf60ee9455d8e61635d3a8a3f99375ed339` removed the fragile regex and uses pathname segments instead.
 - Deployed Cloudflare Worker v0.5.2 stack; latest upload deployment id `e738e9e1eb80464fb44a81bc68a285dc`.
-- Cloudflare Pages deployment `6cefc704-ec7b-4c32-99e8-2bba18f3d5aa` from the runtime-fix commit completed successfully.
-- Live mobile Browser Rendering verified Genres result count + dedicated search.
-- Live mobile Browser Rendering verified Reader `สารบัญตอน` + auto-purchase checkbox.
-- Browser Rendering later hit account-level 429 while attempting the VIP click smoke; this is a renderer-rate-limit limitation, not an application error.
+- Live Browser Rendering verified Genres result count/search, Create Account, VIP → Coin packages and Reader TOC/auto-buy/bottom TOC controls.
+
+## 2026-10-31 — Phase 6 production operations
+- Added `user_roles`, `audit_log` and `cms_settings` migration and confirmed them live in production D1.
+- Added a production Admin Console at `/admin` with one-time Owner bootstrap, RBAC, book/chapter CMS, Support queue, users/roles and audit log.
+- Owner bootstrap stores only a SHA-256 hash of the one-time setup token in D1. The owner chooses their own e-mail and password; the server creates the normal account with PBKDF2-SHA256 and deletes the bootstrap hash after successful bootstrap.
+- Added server-side Admin APIs under `/api/admin/*` directly in the Cloudflare Pages Worker using the production D1 binding. Normal reader APIs continue proxying to the core Worker.
+- Added `admin-page.html`, `admin-worker-v2.js` and `build-admin.mjs`; Pages build now runs `build-static.mjs && build-admin.mjs`.
+- Fixed `/admin` canonical-asset redirect loop by serving the Admin HTML directly from the Pages Worker.
+- Production Pages deployment `7874a7a9-849c-4f2e-8906-1b77ea7c2847` completed successfully. Live Browser Rendering returned HTTP 200 for `/admin` and verified the Owner setup UI.
+- Production D1 checkpoint before Owner creation: 6 books, 72 chapters, 0 authenticated accounts, 0 owners, one active bootstrap hash.
+- Created separate APAC D1 database `astra-read-staging` (`98e46a5c-86e0-4fc3-9d65-f818b2ae9cb0`) and seeded the same schema + 6 demo books + 72 chapters.
+- Cloudflare Pages production `DB` binding remains `astra-read-prod`; preview `DB` binding now points to `astra-read-staging`. UAT/preview therefore cannot mutate production D1 by accident.
+- Added `replica/admin.md` operations runbook. The plaintext Owner Setup Token is intentionally not committed to Git.
+- Real payments remain disabled.
 
 ## Current feature status
 - Browse/search/filter/sort/status: yes.
 - Story detail + searchable/sortable chapter directory: yes.
-- Reader prev/next + scroll progress + TOC: yes.
+- Reader prev/next + scroll progress + TOC + auto-buy preference: yes.
 - Reader font/theme/size/width/ambient preferences: yes.
-- Reader auto-purchase preference: D1/API live; UI visible in live reader.
 - Library + reading history + resume progress: yes, authenticated D1-backed.
 - Email/password account/session auth: yes.
-- Separate Create Account state: deployed; final click smoke remains part of parity QA.
+- Separate Create Account state: yes, live verified.
 - Google Sign-In: UI only; project-owned OAuth configuration pending.
 - Account export/delete: yes.
 - Notifications: yes.
 - Guest support + authenticated linkage: yes.
 - Coin wallet + ledger + coin chapter unlock: yes for UAT/demo coins.
-- Coin package/payment-method UI: yes.
+- Coin package/payment-method UI: yes; VIP button routes to the same surface.
+- Admin/content CMS: live.
+- Owner/Admin RBAC + audit log: live.
+- Production/staging D1 isolation: live.
 - Real Stripe/PromptPay/card checkout: intentionally OFF pending ASTRA-owned Stripe configuration and signed webhook reconciliation.
-- Admin/content CMS: pending.
-- Password recovery/e-mail verification: pending external e-mail provider.
-- Netlify deploy config + Edge API proxy: ready in GitHub; live Netlify site still requires an account connection unavailable in this chat.
+- Password recovery/e-mail verification: pending external transactional e-mail provider.
+- Netlify deploy config + Edge API proxy: ready in GitHub; live Netlify site requires a Netlify account connection.
