@@ -1,6 +1,6 @@
 name = "astra-read"
-main = "src/worker.js"
-compatibility_date = "2026-10-30"
+main = "src/worker-v05.js"
+compatibility_date = "2026-10-31"
 workers_dev = true
 
 [[d1_databases]]
