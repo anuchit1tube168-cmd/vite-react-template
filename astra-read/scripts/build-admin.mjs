@@ -15,10 +15,12 @@ const [adminHtml, adminSource] = await Promise.all([
 
 const transformed = adminSource.replace('export default{', 'const adminWorker={').replace('export default {', 'const adminWorker = {');
 if (transformed === adminSource) throw new Error('admin worker export transform failed');
+const embeddedAdmin = JSON.stringify(adminHtml);
 
 const proxy = `${transformed}
 
 const CORE='https://astra-read.anuchit1tube168.workers.dev';
+const ADMIN_HTML=${embeddedAdmin};
 async function proxyCore(request){
   const u=new URL(request.url);
   const target=new URL(u.pathname+u.search,CORE);
@@ -38,7 +40,7 @@ async function proxyCore(request){
 export default {async fetch(request,env,ctx){
   const u=new URL(request.url);
   if(u.pathname==='/admin'||u.pathname==='/admin/'){
-    return env.ASSETS.fetch(new Request(new URL('/admin/index.html',request.url),request));
+    return new Response(ADMIN_HTML,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'}});
   }
   if(u.pathname.startsWith('/api/admin/')) return adminWorker.fetch(request,env,ctx);
   if(u.pathname.startsWith('/api/')) return proxyCore(request);
