@@ -15,11 +15,11 @@ F13,Quick Top-Up entry,must,public rendered UI,yes,Floating action opens coin pa
 F14,Coin ledger history,should,inferred from wallet behavior,yes,Last 30 server ledger rows
 F15,Coin unlock deduction,must,public rendered UI,yes,Unique reference prevents repeat charge
 F16,Real-money top-up,payment,public monetization UI,partial,Package and checkout shell ready; Stripe connection required
-F17,VIP Member entry,must,public rendered UI,partial,Observed target VIP entry opens same coin package modal; static parity remap deployed pending final browser smoke
+F17,VIP Member entry,must,public rendered UI,partial,Observed target VIP entry opens same coin package modal; mapping deployed and shares verified parity script but final click smoke hit Browser Rendering 429
 F18,Internal VIP membership trial,could,ASTRA enhancement,yes,Optional ASTRA-only demo state; not required for observed target parity
 F19,Real paid VIP subscription,could,not observed as separate public target flow,skip,No separate paid VIP flow required from current public evidence
 F20,Email password sign-in,must,public sign-in modal,yes,PBKDF2 plus HttpOnly session
-F21,Separate Create Account state,must,public signup modal,partial,Username email password state deployed pending final browser smoke
+F21,Separate Create Account state,must,public signup modal,partial,Username email password state deployed; final click smoke pending
 F22,Google sign-in,should,public sign-in and signup modal,partial,UI present; project-owned Google OAuth client still required
 F23,Account summary,should,authenticated experience,yes,Coins library history unread optional ASTRA VIP state
 F24,Account export,must,privacy requirement,yes,JSON export without credential hashes
@@ -54,8 +54,9 @@ F52,Coin package M 80 Coins 100 THB,must,public Quick Top-Up modal,yes,Popular d
 F53,Coin package L XL XXL,must,public Quick Top-Up modal,yes,240/300 400/500 800/1000 UI packages
 F54,PromptPay QR payment method surface,must,public Quick Top-Up modal,yes,UI shown; real transaction disabled
 F55,Credit Debit Card payment method surface,must,public Quick Top-Up modal,yes,UI shown; hosted checkout required for real use
-F56,Genres current-result count,must,public Genres page,partial,Enhancement deployed after runtime fix pending final browser smoke
-F57,Genres dedicated search,must,public Genres page,partial,Enhancement deployed after runtime fix pending final browser smoke
-F58,Reader table-of-contents action,must,public Reader page,partial,Enhancement deployed after runtime fix pending final browser smoke
-F59,Reader auto-purchase toggle,must,public Reader page,partial,D1 and API live; UI enhancement deployed pending final browser smoke
-F60,Auto-unlock next locked chapter,must,public Reader auto-purchase behavior,partial,Uses coin unlock endpoint after navigation when preference is enabled
+F56,Genres current-result count,must,public Genres page,yes,Live mobile Browser Rendering verified
+F57,Genres dedicated search,must,public Genres page,yes,Live mobile Browser Rendering verified
+F58,Reader top table-of-contents action,must,public Reader page,yes,Live mobile Browser Rendering verified as สารบัญตอน
+F59,Reader auto-purchase toggle,must,public Reader page,yes,D1/API live and live checkbox verified
+F60,Auto-unlock next locked chapter,must,public Reader auto-purchase behavior,partial,Server flow implemented; authenticated coin-spend E2E still requires disposable UAT account
+F61,Reader bottom table-of-contents action,must,public Reader page,yes,Live mobile Browser Rendering verified between previous and next controls
