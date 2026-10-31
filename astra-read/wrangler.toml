@@ -1,5 +1,5 @@
 name = "astra-read"
-main = "src/worker-v05.js"
+main = "src/worker-v051.js"
 compatibility_date = "2026-10-31"
 workers_dev = true
 
