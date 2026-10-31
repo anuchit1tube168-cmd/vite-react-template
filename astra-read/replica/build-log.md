@@ -31,20 +31,41 @@
 - Updated header UI with real notification and support actions.
 - Deployed Worker v0.4.0 (`deployment da9b9a235ee8494e90124c64bc0599d1`).
 - Live production health smoke returned HTTP 200 with `mode=auth-notify-support`, `books=6`, `payments=false`.
-- D1 checkpoint after deploy: 6 books, 72 chapters, and zero real user accounts/sessions/tickets at the checkpoint, so no synthetic smoke-account residue was left behind.
+
+## 2026-10-31 — Phase 5 public feature parity
+- Re-audited the target from public rendered behavior rather than relying on the first screen map.
+- Expanded the feature matrix from the original small MVP list to 60 tracked behaviors.
+- Added D1 reader preferences, wallet integrity helpers, optional ASTRA VIP state, guest support requests, and reader auto-purchase preference.
+- Added server-authoritative wallet balance, coin ledger, demo top-up, coin deduction and chapter entitlements.
+- Added public guest Support with category, details, contact e-mail and optional phone. Guest requests are rate-limited and can link to a signed-in reader when available.
+- Added public coin-package UI matching the observed package structure: S 40/50, M 80/100, L 240/300, XL 400/500, XXL 800/1000; PromptPay and card payment-method surfaces are present while real checkout remains disabled.
+- Corrected the public product model after observing that both `VIP Member` and `Quick Top-Up` expose the same coin-purchase surface. A separate paid VIP subscription is not treated as required parity from current evidence.
+- Added separate Create Account state with Username / Email / Password plus Google surface.
+- Added Genres current-result count and dedicated in-page title/author search.
+- Added Reader table-of-contents action and `auto-purchase next chapter when enough Coins` preference; the D1 preference is exposed via GET/PUT API and locked chapters can use the existing coin-unlock endpoint after navigation.
+- Fixed a generated parity-script parsing bug caused by regex escaping inside the static build template. Commit `a2c5adf60ee9455d8e61635d3a8a3f99375ed339` removed the fragile regex and uses pathname segments instead.
+- Deployed Cloudflare Worker v0.5.2 stack; latest upload deployment id `e738e9e1eb80464fb44a81bc68a285dc`.
+- Cloudflare Pages deployment `6cefc704-ec7b-4c32-99e8-2bba18f3d5aa` from the runtime-fix commit completed successfully.
+- Live mobile Browser Rendering verified Genres result count + dedicated search.
+- Live mobile Browser Rendering verified Reader `สารบัญตอน` + auto-purchase checkbox.
+- Browser Rendering later hit account-level 429 while attempting the VIP click smoke; this is a renderer-rate-limit limitation, not an application error.
 
 ## Current feature status
-- Browse/search/filter: yes.
-- Story detail + chapter directory: yes.
-- Reader: yes for original seeded demo content.
-- Library + progress: yes, authenticated D1-backed.
-- Reader preferences: yes, local device settings.
-- Basic account/session auth: yes.
+- Browse/search/filter/sort/status: yes.
+- Story detail + searchable/sortable chapter directory: yes.
+- Reader prev/next + scroll progress + TOC: yes.
+- Reader font/theme/size/width/ambient preferences: yes.
+- Reader auto-purchase preference: D1/API live; UI visible in live reader.
+- Library + reading history + resume progress: yes, authenticated D1-backed.
+- Email/password account/session auth: yes.
+- Separate Create Account state: deployed; final click smoke remains part of parity QA.
+- Google Sign-In: UI only; project-owned OAuth configuration pending.
 - Account export/delete: yes.
 - Notifications: yes.
-- Support tickets: yes.
-- Server entitlement enforcement: yes.
-- Auth/write hardening: partial but materially improved.
-- Email verification/password recovery: pending.
+- Guest support + authenticated linkage: yes.
+- Coin wallet + ledger + coin chapter unlock: yes for UAT/demo coins.
+- Coin package/payment-method UI: yes.
+- Real Stripe/PromptPay/card checkout: intentionally OFF pending ASTRA-owned Stripe configuration and signed webhook reconciliation.
 - Admin/content CMS: pending.
-- VIP/coins/payment: payment remains OFF; no real transactions.
+- Password recovery/e-mail verification: pending external e-mail provider.
+- Netlify deploy config + Edge API proxy: ready in GitHub; live Netlify site still requires an account connection unavailable in this chat.
