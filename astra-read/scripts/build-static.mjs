@@ -30,36 +30,32 @@ const [uiSource, cssSource, clientSource] = await Promise.all([
   fs.readFile(path.join(src, 'client.js'), 'utf8')
 ]);
 
-const html = unwrap(uiSource, 'html');
+const vipParityPatch = `<script>(function(){function mapVip(){document.querySelectorAll('.vipBtn[data-act="vip"]').forEach(function(b){b.dataset.act='wallet';b.title='Coin packages'})}mapVip();new MutationObserver(mapVip).observe(document.documentElement,{childList:true,subtree:true})})();</script>`;
+const html = unwrap(uiSource, 'html').replace('</body>', vipParityPatch + '</body>');
 const css = unwrap(cssSource, 'css');
 const js = unwrap(clientSource, 'client');
 
-const pagesWorker = `const UPSTREAM = 'https://astra-read.anuchit1tube168.workers.dev';
-export default {
-  async fetch(request, env) {
-    const incoming = new URL(request.url);
-    if (!incoming.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
-    const target = new URL(incoming.pathname + incoming.search, UPSTREAM);
-    const headers = new Headers(request.headers);
-    headers.set('Origin', UPSTREAM);
-    headers.set('Sec-Fetch-Site', 'same-origin');
-    headers.set('X-ASTRA-Entry', 'cloudflare-pages-static');
-    headers.delete('host');
-    const init = { method: request.method, headers, redirect: 'manual' };
-    if (!['GET','HEAD'].includes(request.method)) init.body = request.body;
-    const response = await fetch(target, init);
-    const outHeaders = new Headers(response.headers);
-    outHeaders.set('X-ASTRA-Proxy', 'pages-static');
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers: outHeaders });
+const proxy = `const UPSTREAM='https://astra-read.anuchit1tube168.workers.dev';
+export default {async fetch(request,env){
+  const u=new URL(request.url);
+  if(u.pathname.startsWith('/api/')){
+    const target=new URL(u.pathname+u.search,UPSTREAM);
+    const h=new Headers(request.headers);
+    h.set('Origin',UPSTREAM);h.set('Sec-Fetch-Site','same-origin');h.set('X-ASTRA-Entry','pages-static');
+    const init={method:request.method,headers:h,redirect:'manual'};
+    if(!['GET','HEAD'].includes(request.method))init.body=request.body;
+    const r=await fetch(new Request(target,init));
+    const oh=new Headers(r.headers);oh.set('X-ASTRA-Proxy','pages-static-api');oh.set('Cache-Control','no-store');
+    return new Response(r.body,{status:r.status,statusText:r.statusText,headers:oh});
   }
-};
-`;
+  return env.ASSETS.fetch(request);
+}};`;
 
 await Promise.all([
   fs.writeFile(path.join(out, 'index.html'), html),
   fs.writeFile(path.join(out, 'app.css'), css),
   fs.writeFile(path.join(out, 'app.js'), js),
-  fs.writeFile(path.join(out, '_worker.js'), pagesWorker),
+  fs.writeFile(path.join(out, '_worker.js'), proxy),
   fs.writeFile(path.join(out, '_redirects'), '/* /index.html 200\n'),
   fs.writeFile(path.join(out, '_headers'), `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n\n/app.js\n  Cache-Control: public, max-age=300\n\n/app.css\n  Cache-Control: public, max-age=300\n`)
 ]);
