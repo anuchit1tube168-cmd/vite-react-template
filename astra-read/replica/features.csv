@@ -47,7 +47,7 @@ F45,Cloudflare Worker API,must,deployment requirement,yes,v0.5.2 wrapper stack o
 F46,Netlify portable deployment,should,deployment requirement,partial,Config and Edge proxy ready; Netlify account connection unavailable in chat
 F47,Google OAuth production,should,external provider requirement,no,Needs owned client ID secret and redirect URIs
 F48,Password reset email,should,account recovery,no,Needs transactional email provider
-F49,Admin CMS,should,content operations,no,Next operations phase
+F49,Admin CMS,should,content operations,yes,Standalone Cloudflare Worker admin portal with Books Chapters Support Audit
 F50,Production Stripe checkout,payment,public payment UI,no,Must remain off until owned Stripe integration and signed webhook reconciliation
 F51,Coin package S 40 Coins 50 THB,must,public Quick Top-Up modal,yes,UI package selector
 F52,Coin package M 80 Coins 100 THB,must,public Quick Top-Up modal,yes,Popular default selection
@@ -60,3 +60,8 @@ F58,Reader top table-of-contents action,must,public Reader page,yes,Live mobile 
 F59,Reader auto-purchase toggle,must,public Reader page,yes,D1/API live and live checkbox verified
 F60,Auto-unlock next locked chapter,must,public Reader auto-purchase behavior,partial,Server flow implemented; authenticated coin-spend E2E still requires disposable UAT account
 F61,Reader bottom table-of-contents action,must,public Reader page,yes,Live mobile Browser Rendering verified between previous and next controls
+F62,Owner Admin RBAC,must,operations security,yes,user_roles with server-side role checks on every CMS endpoint
+F63,One-time Owner bootstrap,must,operations security,yes,Secret binding plus automatic bootstrap closure after owner exists
+F64,Admin independent session,must,operations security,yes,HttpOnly Secure SameSite Lax ar_admin_session backed by hashed D1 session token
+F65,Admin mutation audit log,must,operations security,yes,Book chapter support and owner setup mutations write audit_log
+F66,Standalone Admin Worker,must,operations reliability,yes,astra-read-admin Workers.dev enabled and Browser Rendering returned HTTP 200
